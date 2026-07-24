@@ -1,4 +1,5 @@
 # Data Analysis & Preprocessing in R (Admissions & Titanic)
+**View Interactive Report:** [Live HTML Report](https://ganitganit484.github.io/R-Exploratory-Data-Analysis-and-Preprocessing/)
 
 This repository contains an exploratory data analysis (EDA) and data cleaning project written in R using `dplyr` and `ggplot2`. 
 
