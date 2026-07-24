@@ -1,0 +1,472 @@
+---
+title: "Homework 2"
+author: "Ganit Golin - 325665651"
+output: html_document
+---
+
+
+### Instructions
+
+1.  All assignments are individual!
+2.  This assignment should be uploaded as two files: "rmd" and "html" (after knit).
+3.  There are questions for two different datasets in this assignment, if you want to pass it, you must complete all of them.
+4.  Questions about the assignment should be asked using the Assignments forums.
+5.  All of the instructions of this assignment should be included in the final .html file.
+
+Use **ggplot2** and **dplyr** for data analysis and visualization. Clearly organize your assignment into sections and include appropriate text and code chunks.
+
+---
+```{r, warning=FALSE, message=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(tidyverse)
+
+```
+
+# Dataset 1: Admissions (60%)
+
+You are provided with the dataset **`admissions.csv`**, containing data about Master's program applicants, their test scores, and acceptance status.
+
+```{r}
+admissions <- read.csv("admission.csv")
+head(admissions)
+```
+
+
+## Part 1: Informative Analysis
+
+- Provide detailed feature descriptions, including meanings, types, and statistics (mean, median, standard deviation, min, max).
+
+I will briefly explain each of the columns:
+Serial.No. - The candidate's serial number, so we will not perform calculations on this column.
+GRE.Score - Entrance exam score (in our table there are values between 290 and 340)
+TOEFL.Score - Score on a test that tests the level of proficiency in the English language (in our table there are values between 92 and 120). 
+University.Rating - Indicates the ranking of the university from which the candidate comes (in our table there are values between 1 and 5). 
+SOP - A measure of the student's letter being registered by the admissions committee (in our table there are values between 1 and 5). 
+CGPA - The candidate's cumulative grade point average in the first degree (in our table there are values between 6.8 and 9.92).
+Research - A column with a binary value where 0 indicates that the candidate does not have a research background and 1 indicates that the candidate has a research background. Since this is a column with a binary value, we will not perform statistical calculations on it and will later use the common.
+Admission - A column with a binary value where 0 indicates a candidate has no research background and 1 indicates a candidate has a research background. Since we will not perform statistical calculations on a column with a value, we will use the common one later.
+
+```{r}
+
+stats_table <- admissions %>%
+  summarise(GRE = c(mean(GRE.Score,na.rm = TRUE),median(GRE.Score,na.rm=TRUE),
+                    sd(GRE.Score,na.rm = TRUE),max(GRE.Score,na.rm = TRUE),
+                    min(GRE.Score,na.rm = TRUE)),
+            TOEFL = c(mean(TOEFL.Score,na.rm = TRUE),median(TOEFL.Score,na.rm=TRUE),
+                    sd(TOEFL.Score,na.rm = TRUE),max(TOEFL.Score,na.rm = TRUE),
+                    min(TOEFL.Score,na.rm = TRUE)),
+            SOP = c(mean(SOP,na.rm = TRUE),median(SOP,na.rm=TRUE),
+                    sd(SOP,na.rm = TRUE),max(SOP,na.rm = TRUE),
+                    min(SOP,na.rm = TRUE)),
+            CGPA = c(mean(CGPA,na.rm = TRUE),median(CGPA,na.rm=TRUE),
+                    sd(CGPA,na.rm = TRUE),max(CGPA,na.rm = TRUE),
+                    min(CGPA,na.rm = TRUE)),
+            University_Rating = c(mean(University.Rating,na.rm = TRUE),median(University.Rating,na.rm=TRUE),
+                    sd(University.Rating,na.rm = TRUE),max(University.Rating,na.rm = TRUE),
+                    min(University.Rating,na.rm = TRUE))) %>%
+  mutate(Statistic = c("Mean", "Median", "SD", "Max", "Min")) %>%
+  select(Statistic, everything())
+
+print(stats_table)
+```
+
+For the categorical columns:Research, Admission we would like to calculate the mode.
+
+```{r}
+get_mode <- function(x) {
+  Unique_val <- unique(na.omit(x))
+  Unique_val[which.max(tabulate(match(x, Unique_val)))]
+}
+
+cols_to_check <- c("Research", "Admission")
+modes <- sapply(admissions[cols_to_check], get_mode)
+print(modes)
+```
+
+- Discuss clearly the following relationships:
+  - Mean CGPA difference by research experience.
+  
+  It can be seen that there is a positive correlation between research experience and academic achievements.   This correlation is reflected in the fact that people with research experience have a higher grade point     average (CGPA). 
+  
+```{r}
+research_analysis <- admissions %>%
+  filter(!is.na(Research)) %>%
+  group_by(Research) %>%
+  summarise(Mean_CGPA = mean(CGPA,na.rm = TRUE))
+
+print(research_analysis)
+  
+```
+ 
+  
+  
+  - Mean TOEFL scores by University Ratings.
+  
+  Here too, it can be observed that there is a positive correlation between the ranking of the university      from which the candidate comes and his language skills. This correlation is reflected in the fact that       people who came from a higher-ranking university have a higher average score on the TOEFL index.  
+  
+```{r}
+University_analysis <- admissions %>%
+  filter(!is.na(University.Rating)) %>%
+  group_by(University.Rating) %>%
+  summarise(Mean_TOEFL = mean(TOEFL.Score,na.rm = TRUE))
+
+print(University_analysis)
+```
+
+  
+
+## Part 2: Data Processing
+
+- Clearly handle missing values with justifications:
+
+  - GRE Score: Replace missing with median. Why is median preferred here?
+  
+  In the GRE column, we will replace blank values with the median because it is a value that is   not affected by outliers and we know that exactly half of the candidates scored below the       median and half scored above the median. In addition, according to previous calculations, the   mean and median are close to each other, so when we replace the blank values with this value,   the replacement will not skew the data distribution or affect the mean excessively.  
+  
+  - Research: Replace missing with mode. Explain your reasoning clearly.
+  
+  In the study, we replace with the common value because in our case there are only two optional   values and it is likely that the missing values belong to the common value simply because       its probability is higher. In addition, we want to keep the condition binary (with two          optional values).
+  
+  - CGPA: Replace missing with mean. Justify your choice of mean here.
+  
+  In the CPGA column, the mean and median are almost identical, which indicates that we can say   that there are no extreme values in the column, and therefore when we replace the empty values   with the mean, the symmetric distribution will not change too much.
+  
+  
+```{r}
+research_mode_val <- admissions %>%
+  #Count how many of each value there are.
+  count(Research) %>%        
+  #We will ignore empty values.
+  filter(!is.na(Research)) %>% 
+  #Arranged in descending order
+  arrange(desc(n)) %>%       
+  #We will take the first value (with the highest frequency))
+  slice(1) %>%               
+  #We will extract the value we found from the table (the one with the highest frequency).
+  pull(Research)
+
+Clear_admissions <- admissions %>%
+  mutate(GRE.Score = replace_na(GRE.Score,median(GRE.Score,na.rm = TRUE)),
+         Research = replace_na(Research,research_mode_val),
+         CGPA = replace_na(CGPA,mean(CGPA,na.rm = TRUE)))
+```
+
+
+## Part 3: Data Visualization
+
+Create the following detailed plots using **ggplot2**:
+
+1. Histogram of GRE Scores by Admission status.
+
+```{r}
+ggplot(Clear_admissions,aes(x=GRE.Score)) +
+  geom_histogram(bins=20,fill = "steelblue",, color = "black") + 
+  facet_wrap(~ Admission) + 
+  labs(title = "GRE Scores by Admission status",x="GRE Score",y="Number of Candidates")
+```
+
+2. Histogram of CGPA by Admission status.
+```{r}
+ggplot(Clear_admissions,aes(x=CGPA)) +
+  geom_histogram(bins=25,fill = "indianred1", color = "white") + 
+  facet_wrap(~ Admission) + 
+  labs(title = "CGPA by Admission status",x="CGPA",y="Number of Candidates")
+```
+
+
+3. Bar plot: Applicants count per University Rating by Admission (interpret clearly).
+
+```{r}
+#We write a factor so that R knows that the numbers in the University.Rating column are the groups and 0,1 in Admission column is the admission status We would like to color the bars according to them and not simply numerical values on the axis.
+ggplot(Clear_admissions, aes(x = factor(University.Rating), fill = factor(Admission))) +
+  geom_bar(position = "dodge") + 
+  labs(title = "Applicants Count by University Rating and Admission Status",
+       x = "University Rating",
+       y = "Number of Applicants",
+       fill = "Admission Status") +
+  scale_fill_manual(values = c("0" = "red", "1" = "#B2D8B2"), 
+                    labels = c("Not Admitted", "Admitted")) +
+  theme_minimal()
+
+
+```
+
+---
+
+# Dataset 2: Titanic (40%)
+
+You are provided with the dataset **`titanic.csv`**, containing passenger details and survival information.
+
+```{r}
+titanic <- read.csv("titanic.csv")
+head(titanic)
+```
+
+
+## Part 1: Informative Analysis
+
+- Clearly describe features, their meanings, and statistics (mean, median, standard deviation, min, max).
+
+For each passenger, the following data is displayed: passenger's serial number, whether the passenger survived the ship's collision with the iceberg (where -0 indicates that the passenger did not survive, -1 indicates that he survived), the class in which the passenger was staying (first class - 1, second class - 2, third class - 3), passenger's name which contains information about whether it is a child or an adult, passenger's gender, passenger's age, SibSp describes the number of the passenger's siblings/spouses on the ship, Parch describes the number of the passenger's parents/children on the ship, the passenger's ticket number, the passenger's ticket price, the cabin in which the passenger stayed, and the port of departure where the passenger boarded the ship.
+
+
+For the columns: Age, SibSp, Parch, Fare we calculate the mean, median, standard deviation, minimum and maximum because in these columns the values are not categorical and calculating these statistics on them will help in drawing conclusions.
+```{r}
+stats_table <- titanic %>%
+  summarise(Age = c(mean(Age,na.rm = TRUE),median(Age,na.rm=TRUE),
+                    sd(Age,na.rm = TRUE),max(Age,na.rm = TRUE),
+                    min(Age,na.rm = TRUE)),
+            SibSp = c(mean(SibSp,na.rm = TRUE),median(SibSp,na.rm=TRUE),
+                    sd(SibSp,na.rm = TRUE),max(SibSp,na.rm = TRUE),
+                    min(SibSp,na.rm = TRUE)),
+            Parch = c(mean(Parch,na.rm = TRUE),median(Parch,na.rm=TRUE),
+                    sd(Parch,na.rm = TRUE),max(Parch,na.rm = TRUE),
+                    min(Parch,na.rm = TRUE)),
+            Fare = c(mean(Fare,na.rm = TRUE),median(Fare,na.rm=TRUE),
+                    sd(Fare,na.rm = TRUE),max(Fare,na.rm = TRUE),
+                    min(Fare,na.rm = TRUE))) %>%
+  mutate(Statistic = c("Mean", "Median", "SD", "Max", "Min")) %>%
+  select(Statistic, everything())
+
+print(stats_table)
+```
+
+For the categorical columns:Survived, Sex, Pclass, Embarked we would like to calculate the mode.
+```{r}
+#Using the get_mode function we defined in Part 1 to calculate the mode
+cols_to_check <- c("Survived", "Sex", "Pclass", "Embarked")
+modes <- sapply(titanic[cols_to_check], get_mode)
+print(modes)
+```
+
+- Provide four detailed insights examining interesting or less obvious relationships:
+  - Does age distribution differ significantly by class?
+  
+  Note that in the first class (which is usually considered the more expensive class) the average age is the   highest and in the third class it is the lowest, with the difference between these two averages being ~12    years. In the three classes, the median age is relatively close to the average, which means that there were   not many people in any class whose age was significantly different from the average.
+```{r}
+age_distribution_classes <- titanic %>%
+  filter(!is.na(Pclass)) %>%
+  group_by(Pclass) %>%
+  summarise(Mean_Age = mean(Age,na.rm = TRUE),Median_Age = median(Age,na.rm = TRUE),SD_Age = sd(Age,na.rm = TRUE))
+
+print(age_distribution_classes)
+```
+  
+  
+  - Analyze survival rates based on gender and passenger class.
+  
+```{r}
+survival_pivot <- titanic %>%
+  #A group will be made up of pairs of gender and class.
+  group_by(Sex, Pclass) %>%
+  #For the group by we did earlier, we calculated the percentage of people who survived using the average of   the people who survived in each group. The average will give the percentage of people because people who     survived are marked with a 1 and those who didn't are marked with a 0.
+  #At the end of the calculation, we delete the created groups.
+  summarise(Survival_Rate = mean(Survived == 1) * 100, .groups = 'drop') %>%
+  #We will turn the classes into table columns.
+  pivot_wider(names_from = Pclass, values_from = Survival_Rate)
+
+#We round the decimal numbers to two digits after the point and add a percent sign.
+survival_formatted <- survival_pivot %>%
+  mutate(across(where(is.numeric), ~ paste0(round(.x, 2), "%")))
+
+print(survival_formatted)
+```
+  
+  - Investigate if fare amount influenced survival differently in different passenger classes.
+  
+  In all three classes, the average price of a ticket was higher for those who survived than for those who     did not. However, it should be noted that in first class the gap between the average price for those who     survived and those who did not survive was the highest, which suggests that the location of the people who   survived was probably different (for example, a higher position on the deck) compared to people in third     class who, due to the small difference in price differences, were in similar locations, and what affected    the chances of survival was probably other factors unrelated to location.
+  
+```{r}
+fare_insight <- titanic %>%
+  group_by(Pclass, Survived) %>%
+  summarise(Average_Fare = mean(Fare, na.rm = TRUE), .groups = 'drop')
+
+print(fare_insight)
+```
+  
+  
+  - Provide one additional insightful relationship of your own and discuss why it's interesting or important.
+  
+  In the following table, we present the number of children who survived from each of the class in             order to check whether the principle of priority for evacuating children to lifeboats worked equally well    in all classes. According to the data obtained, it can be noted that the survival rates in classes   1 and   2 were significantly higher compared to the survival rates of children from class 3. Therefore,   it can be   concluded that children from class 3 received lower priority/had more difficulties on the     way to them    than children from classes 1 and 2.
+  
+```{r}
+#We will only consider rows containing passengers under the age of 16 and group the data according to the class to which the passengers belonged.
+child_survival_table <- titanic %>%
+  filter(Age < 16) %>% 
+  group_by(Pclass) %>%
+  #For each group, we will count the number of children in it, calculate the percentage of children who survived from the group
+  summarise(
+    Total_Children = n(),
+    Survival_Rate = paste0(round(mean(Survived) * 100, 1), "%")
+  )
+
+print(child_survival_table)
+```
+  
+
+## Part 2: Data Processing
+
+- Clearly and explicitly justify how you handle missing values in each feature. Your explanation should reflect an understanding of data quality and analytical considerations.
+
+
+We will create a table that will help us know for each column whether there are empty values in it.
+```{r}
+#We will check for each column whether it has at least one empty value, and enter the resulting information into a table that we will turn into the displayed data frame.
+na_check <- colSums(is.na(titanic) | titanic == "") > 0
+data.frame(Has_Missing_Or_Empty = na_check)
+```
+
+```{r}
+#We will find the rows where the name column contains the nickname Master and the age column contains a blank value, count the number of matching rows, and print an appropriate message.
+master_missing_age <- titanic %>%
+  filter(str_detect(Name, "Master") & is.na(Age)) %>%
+  nrow()
+
+print(paste("Number of 'Master' passengers with missing age:", master_missing_age))
+```
+
+
+We will replace the empty values as follows:
+- In the Age column, missing values were replaced with the median. Although the median is relatively close to the mean in this dataset, it was chosen for its robustness against extreme values, such as infants only a few months old versus passengers in their 70s, sensuring that these outliers do not disproportionately bias the imputed data. In addition, based on the previous test we performed, we saw that there are no people with a Master's degree (which implies that these are children) without an age, so it is known that all people who are missing an age are adults and therefore can be replaced with a median equal to 29.
+- In the Cabin column, we will replace the empty values with unknown since it is not possible to predict or estimate the cabin in which the people were.
+- In the Embarked column, we will replace the empty values with common since the probability of boarding the ship from it is the highest.
+
+
+```{r}
+Clear_titanic <- titanic %>%
+  mutate(Age = replace_na(Age,median(Age,na.rm = TRUE)),
+         #For the Cabin column, we will first replace all empty cells with NA and then replace all NA with unknown.
+         Cabin = na_if(Cabin, ""),
+         Cabin = replace_na(Cabin, "Unknown"),
+         #In the Embarked column, we will replace the empty values with the common value we calculated in the previous sections.
+         Embarked = na_if(Embarked, ""),
+         Embarked = replace_na(Embarked, "S")) 
+
+```
+
+
+## Part 3: Data Visualization
+
+Select and create **four informative plots** using **ggplot2**:
+
+- Clearly justify why each plot was chosen and discuss the insights each provides about the Titanic dataset. One plot should specifically focus on an interaction between three or more variables. Explain the complexity and your reasoning for this choice.
+
+
+1. The graph shows the relationship between the number of siblings/spouses a person had on the ship and their survival rates. It can be noted that people who were alone on the ship survived less than people who had 1-2 family members on the ship. This figure can be explained by the fact that these people probably did not have assistance in escaping from the dangerous areas. People with more than 1-2 family members also had relatively low chances of survival, probably because large families usually had less financial resources and were therefore in lower classes (mainly compartment 3) or had logistical difficulty evacuating all family members in time.
+```{r}
+#We will group according to the number of family members in the SibSp column and for each such group we will calculate the percentage of people who survived from it.
+sibsp_survival <- Clear_titanic %>%
+  group_by(SibSp) %>%
+  summarise(Survival_Rate = mean(Survived, na.rm = TRUE) * 100)
+
+ggplot(sibsp_survival, aes(x = factor(SibSp), y = Survival_Rate, fill = factor(SibSp))) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  #Above each column we will add the corresponding survival percentage.
+  geom_text(aes(label = sprintf("%.1f%%", Survival_Rate)), vjust = -0.5) +
+  labs(title = "Survival Rate by Number of Siblings/Spouses (SibSp)",
+       x = "Number of Siblings / Spouses",
+       y = "Survival Rate (%)") +
+  theme_minimal()
+```
+
+
+2. To validate our previous assumptions, this graph explores the socio-economic distribution across family sizes. The data clearly shows that passengers with 1 sibling/spouse had the strongest representation in Class 1 and 2, paying the highest average fares. This explains their superior survival rates.
+
+Conversely, as the number of siblings/spouses increases beyond 2, we see a complete disappearance of Classes 1 and 2. These large families were exclusively in Class 3, paying very low fares relative to their size (e.g., 32.2 for a family of 4). This confirms that large families faced a 'double disadvantage': they were both logistically burdened by their size and socio-economically restricted to the lower decks of the ship, leading to their lower survival chances."
+
+
+
+```{r}
+#We grouped the data by number of siblings/spouses and by class. For each group, we calculated the average price paid for the ticket and count the number of people in each group..
+validation_data <- Clear_titanic %>%
+  group_by(SibSp, Pclass) %>%
+  summarise(
+    Count = n(),
+    Avg_Fare = mean(Fare, na.rm = TRUE),
+    .groups = 'drop'
+  ) %>%
+  #We will use factor so that we can display each class in a different color in the graph.
+  mutate(Pclass = as.factor(Pclass))
+
+ggplot(validation_data, aes(x = factor(SibSp), y = Count, fill = Pclass)) +
+  geom_bar(stat = "identity", position = position_dodge(preserve = "single")) +
+  #Above each column of a class, we will add the average price the family paid for the tickets.
+  geom_text(aes(label = round(Avg_Fare, 1)), position = position_dodge(width = 0.9), vjust = -0.5, size = 3)+
+  scale_fill_manual(values = c("1" = "#2c3e50", "2" = "#2980b9", "3" = "#e74c3c")) +
+  labs(title = "Distribution of Passengers by Family Size, Class, and Average Fare",
+       subtitle = "Numbers above bars represent the Average Fare paid in that group",
+       x = "Number of Siblings / Spouses (SibSp)",
+       y = "Number of Passengers",
+       fill = "Class") +
+  theme_minimal()
+```
+
+3. Given that women were prioritized during the evacuation to lifeboats, it is essential to analyze the gender distribution at each embarkation station. This graph provides that breakdown, allowing us to correlate these figures with the survival rates observed in each port. For instance, the near-equal ratio of men to women in Cherbourg and Queenstown, compared to the overwhelming male majority in Southampton (nearly 2:1), helps explain why Southampton had a lower overall survival rate despite its higher average ticket prices compared to Queenstown(data you see in the following graph).
+
+```{r}
+#We will group the data by gender and boarding station and for each group we will count the number of rows in it (the number of women and men at each station).
+gender_embarked <- Clear_titanic %>%
+  group_by(Embarked, Sex) %>%
+  summarise(Count = n(), .groups = 'drop') %>%
+  #We will expand the abbreviations to the full station names.
+  mutate(Embarked = case_when(
+    Embarked == "C" ~ "Cherbourg",
+    Embarked == "Q" ~ "Queenstown",
+    Embarked == "S" ~ "Southampton"
+  ))
+
+ggplot(gender_embarked, aes(x = Embarked, y = Count, fill = Sex)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  #We will add the number of passengers above each column.
+  geom_text(aes(label = Count), position = position_dodge(width = 0.9), vjust = -0.3) +
+  scale_fill_manual(values = c("female" = "#e84393", "male" = "#0984e3")) +
+  labs(title = "Number of Males and Females by Port of Embarkation",
+       x = "Port of Embarkation",
+       y = "Number of Passengers",
+       fill = "Gender") +
+  theme_minimal()
+```
+
+
+4.The fact that passengers from Southampton paid more on average but had a lower survival rate than those from Queenstown can be explained by the gender distribution shown in the previous graph. While Southampton had a massive majority of male passengers, Queenstown had a much higher proportion of women. Since women were given priority for the lifeboats, this demographic factor outweighed the economic disadvantage of Queenstown, leading to a higher overall survival rate for that station.
+
+In my opinion, the graph is important and interesting because it shows the continued positive correlation between the price of the ticket and the survival rate, and allows for a certain indication of the economic resilience of the people who boarded the ship at each stop.
+
+
+```{r}
+# We will group the data according to the station from which the passengers boarded.In addition, for each group, we calculated the percentage of people who survived and the average price they paid for a ticket.
+survival_embarked <- Clear_titanic %>%
+  group_by(Embarked) %>%
+  summarise(
+    Survival_Rate = mean(Survived, na.rm = TRUE) * 100,
+    Avg_Fare = mean(Fare, na.rm = TRUE),
+    .groups = 'drop'
+  ) %>%
+  # We will expand the abbreviations to the full station names.
+  mutate(Embarked = case_when(
+    Embarked == "C" ~ "Cherbourg",
+    Embarked == "Q" ~ "Queenstown",
+    Embarked == "S" ~ "Southampton",
+  ))
+
+ggplot(survival_embarked, aes(x = Embarked, y = Survival_Rate, fill = Embarked)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  # Above each column we will add the percentage of survivors and the average price for a ticket.
+  geom_text(aes(label = paste0(round(Survival_Rate, 1), "%\n(Avg Fare: ", round(Avg_Fare, 1), ")")), 
+            vjust = -0.2, size = 3.5, lineheight = 0.8) +
+  labs(title = "Survival Rate and Average Fare by Port of Embarkation",
+       subtitle = "Higher average fares in Cherbourg correlate with higher survival rates",
+       x = "Port of Embarkation",
+       y = "Survival Rate (%)") +
+  ylim(0, 70) + 
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set1")
+
+```
+
+
+
+---
