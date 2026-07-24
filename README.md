@@ -1,4 +1,3 @@
-# R-Exploratory-Data-Analysis-and-Preprocessing
 # Data Analysis & Preprocessing in R (Admissions & Titanic)
 
 This repository contains an exploratory data analysis (EDA) and data cleaning project written in R using `dplyr` and `ggplot2`. 
