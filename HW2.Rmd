@@ -1,21 +1,6 @@
 ---
-title: "Homework 2"
-author: "Ganit Golin - 325665651"
 output: html_document
----
 
-
-### Instructions
-
-1.  All assignments are individual!
-2.  This assignment should be uploaded as two files: "rmd" and "html" (after knit).
-3.  There are questions for two different datasets in this assignment, if you want to pass it, you must complete all of them.
-4.  Questions about the assignment should be asked using the Assignments forums.
-5.  All of the instructions of this assignment should be included in the final .html file.
-
-Use **ggplot2** and **dplyr** for data analysis and visualization. Clearly organize your assignment into sections and include appropriate text and code chunks.
-
----
 ```{r, warning=FALSE, message=FALSE}
 knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
 library(dplyr)
